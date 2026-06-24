@@ -188,13 +188,5 @@ for batch in dataloader:
 
 ---
 
-## 라이선스
+<img width="2138" height="1016" alt="image" src="https://github.com/user-attachments/assets/9dedd36b-10e7-42a6-bbae-23d9545f0203" />
 
-MIT License. 자세한 내용은 [LICENSE](LICENSE) 참조.
-
----
-
-## 관련 문서
-
-- [구현 보고서](../GreenTrain_AI_Implementation_Report.md) — 상세 구현 내용, 검증된 값과 추정값 구분
-- [아이디어 노트 (해커톤 제출용)](../GreenTrain_AI_Idea_Note_Final.md) — 문제 정의, 선정 이유, 멘토 질문
