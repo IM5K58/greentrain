@@ -1,0 +1,162 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: GreenTrain AI — carbon-aware ML training orchestrator
+
+Parameters:
+  ElectricityMapApiKey:
+    Type: String
+    NoEcho: true
+    Default: ""
+    Description: ElectricityMap API token. Leave empty to disable upstream fetch (carbon_judge will keep last state).
+  ElectricityMapZone:
+    Type: String
+    Default: KR
+  ThreshGreen:
+    Type: Number
+    Default: 400
+    Description: gCO2/kWh below this -> GREEN
+  ThreshRed:
+    Type: Number
+    Default: 600
+    Description: gCO2/kWh at or above this -> RED
+
+Globals:
+  Function:
+    Runtime: python3.13
+    Timeout: 15
+    MemorySize: 256
+    Architectures: [arm64]
+    Environment:
+      Variables:
+        STATE_TABLE: !Ref StateTable
+        METRICS_TABLE: !Ref MetricsTable
+
+Resources:
+  StateTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: greentrain-state
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+
+  MetricsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: greentrain-metrics
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: session_id
+          AttributeType: S
+        - AttributeName: ts
+          AttributeType: N
+      KeySchema:
+        - AttributeName: session_id
+          KeyType: HASH
+        - AttributeName: ts
+          KeyType: RANGE
+
+  Api:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      CorsConfiguration:
+        AllowOrigins: ["*"]
+        AllowMethods: [GET, POST, OPTIONS]
+        AllowHeaders: ["content-type"]
+
+  CarbonJudgeFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/carbon_judge/
+      Handler: app.handler
+      Environment:
+        Variables:
+          ELECTRICITY_MAP_API_KEY: !Ref ElectricityMapApiKey
+          ELECTRICITY_MAP_ZONE: !Ref ElectricityMapZone
+          THRESH_GREEN: !Ref ThreshGreen
+          THRESH_RED: !Ref ThreshRed
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StateTable
+      Events:
+        Schedule:
+          Type: Schedule
+          Properties:
+            Schedule: rate(15 minutes)
+
+  GetStateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/get_state/
+      Handler: app.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref StateTable
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref Api
+            Path: /state
+            Method: GET
+
+  PostMetricFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/post_metric/
+      Handler: app.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref MetricsTable
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref Api
+            Path: /metric
+            Method: POST
+
+  SimulateFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/simulate/
+      Handler: app.handler
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref StateTable
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref Api
+            Path: /simulate
+            Method: POST
+
+  GetSessionFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/get_session/
+      Handler: app.handler
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref MetricsTable
+      Events:
+        ApiEvent:
+          Type: HttpApi
+          Properties:
+            ApiId: !Ref Api
+            Path: /session/{session_id}
+            Method: GET
+
+Outputs:
+  ApiUrl:
+    Description: API Gateway base URL — put in greentrain/.env as GREENTRAIN_API_URL
+    Value: !Sub "https://${Api}.execute-api.${AWS::Region}.amazonaws.com"
+  StateTableName:
+    Value: !Ref StateTable
+  MetricsTableName:
+    Value: !Ref MetricsTable

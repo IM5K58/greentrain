@@ -1,0 +1,23 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+.active_session
+*.pt
+*.ckpt
+.aws-sam/
+.DS_Store
+
+# AWS / SAM
+aws/response.json
+aws/.aws-sam/
+
+# Secrets
+*-keys.csv
+credentials*
+*.key
+
+# Streamlit
+.streamlit/secrets.toml

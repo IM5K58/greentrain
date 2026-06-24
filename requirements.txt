@@ -1,0 +1,14 @@
+# Phase 1 — local agent
+requests>=2.31.0
+python-dotenv>=1.0.0
+
+# Phase 4 — dashboards
+rich>=13.0.0          # terminal TUI (scripts/dashboard.py)
+streamlit>=1.28.0     # web UI       (scripts/dashboard_web.py)
+plotly>=5.18.0        # interactive charts
+pandas>=2.0.0
+
+# Phase 1 — training demo
+# Install torch separately with CUDA wheels:
+#   pip install torch --index-url https://download.pytorch.org/whl/cu124
+# (do NOT add torch here — pip would grab CPU build by default)
